@@ -5,7 +5,8 @@
 	"version": "1.0.0",
 	"scripts": {
 		"compile": "bun run ./scripts/compile",
-		"test": "bun test"
+		"test": "bun test",
+		"patches": "echo 'No patches specified'"
 	},
 	"devDependencies": {
 		"@types/bun": "latest"

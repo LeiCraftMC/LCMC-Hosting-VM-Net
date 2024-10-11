@@ -1,1 +1,12 @@
-console.log("Hello via Bun!");
+
+export default class Main {
+
+    static async init() {
+
+        
+
+    }
+
+}
+
+Main.init();

@@ -1,11 +1,16 @@
 {
-  "name": "vm-net",
-  "module": "index.ts",
-  "type": "module",
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5.0.0"
-  }
+	"name": "vm-net",
+	"module": "index.ts",
+	"type": "module",
+	"version": "1.0.0",
+	"scripts": {
+		"compile": "bun run ./scripts/compile",
+		"test": "bun test"
+	},
+	"devDependencies": {
+		"@types/bun": "latest"
+	},
+	"peerDependencies": {
+		"typescript": "^5.0.0"
+	}
 }

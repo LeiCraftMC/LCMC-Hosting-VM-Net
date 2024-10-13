@@ -1,5 +1,4 @@
 import fs from 'fs';
-import path from "path";
 import Utils from './utils.js';
 
 export interface NetRouteLike {
@@ -24,13 +23,14 @@ export interface ConfigLike {
 export class ConfigHandler {
 
     private static readonly basePath = Bun.env.CUSTOM_CONFIG_PATH || "/etc/lcmc-hosting/vm-net";
+    private static readonly tempPath = Bun.env.CUSTOM_TEMP_PATH || "/var/tmp/lcmc-hosting/vm-net";
     private static config: ConfigLike;
 
     static loadConfig() {
         if (!this.config) {
 
             this.createConfigDir();
-            const config = this.parseFile();
+            const config = this.parseConfigFile();
 
             if (!config) {
                 console.error("Failed to load config file");
@@ -43,14 +43,36 @@ export class ConfigHandler {
         return this.config;
     }
 
-    static createConfigDir() {
-        if (!fs.existsSync(this.basePath)) {
-            fs.mkdirSync(this.basePath, { recursive: true });
+    static copyConfigToTemp() {
+        try {
+            fs.copyFileSync(this.basePath + "/config.json", this.tempPath + "/last-up-config.json");
+        } catch (error: any) {
+            console.error(`Error copying config file to temp: ${error.stack}`);
         }
     }
 
+    static loadLastUPConfig() {
+        if (this.config) {
+            return this.config;
+        }
 
-    static parseFile() {
+        const lastConfig = this.parseLastUPConfigFile();
+        if (lastConfig) {
+            return lastConfig;
+        }
+        return this.loadConfig();
+    }
+
+    private static createConfigDir() {
+        if (!fs.existsSync(this.basePath)) {
+            fs.mkdirSync(this.basePath, { recursive: true });
+        }
+        if (!fs.existsSync(this.tempPath)) {
+            fs.mkdirSync(this.tempPath, { recursive: true });
+        }
+    }
+
+    private static parseConfigFile() {
         const configFilePath = this.basePath + "/config.json";
         try {
             if (fs.existsSync(configFilePath)) {
@@ -64,6 +86,19 @@ export class ConfigHandler {
             console.error(`Error loading config configuration: ${error.stack}`);
             return null;
         }
+    }
+
+    private static parseLastUPConfigFile() {
+        const lastConfigFilePath = this.tempPath + "/last-up-config.json";
+        try {
+            if (fs.existsSync(lastConfigFilePath)) {
+                const configData = fs.readFileSync(lastConfigFilePath, "utf-8");
+                return JSON.parse(configData) as ConfigLike;
+            }
+        } catch (error: any) {
+            console.error(`Error loading temp config configuration: ${error.stack}`);
+        }
+        return null;
     }
 
     private static readonly defaultConfig: ConfigLike = {

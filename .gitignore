@@ -175,6 +175,6 @@ dist
 .DS_Store
 
 
-.config
-
+.config/
+.local/
 build/

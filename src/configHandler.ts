@@ -3,19 +3,17 @@ import Utils from './utils.js';
 
 export interface ConfigLike {
     enabled: boolean;
-    subnets: NetSubnetConfigLike[];
+    subnets: {[subnet: string]: NetSubnetConfigLike};
 }
 
 export interface NetSubnetConfigLike {
-    subnet: number;
     publicIP4: string;
     publicIP6Prefix: string;
     targetIface: string;
-    routes: NetRouteLike[];
+    servers: {[server: string]: NetRouteLike};
 }
 
 export interface NetRouteLike {
-    server: number;
     ipv4?: {
         addr: string;
         targetIface: string;
@@ -122,7 +120,7 @@ export class ConfigHandler {
 
     private static readonly defaultConfig: ConfigLike = {
         enabled: true,
-        subnets: []
+        subnets: {}
     }
 
 }

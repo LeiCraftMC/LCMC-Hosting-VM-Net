@@ -2,8 +2,12 @@ import type { ConfigLike, NetInterfaceConfigLike, NetRouteLike } from "./configH
 
 class ShellCMD {
     static async run(cmd: string) {
-        console.log(`Running: ${cmd}`);
-        await Bun.$`${{raw: cmd}}`.quiet();
+        try {
+            console.log(`Running: ${cmd}`);
+            await Bun.$`${{ raw: cmd }}`.quiet();
+        } catch {
+            console.error(`Failed to run: ${cmd}`);
+        }
     }
 }
 

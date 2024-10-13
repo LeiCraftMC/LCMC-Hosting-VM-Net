@@ -1,12 +1,12 @@
 import { Command } from "../command.js";
-import { Compiler, PlatformArg, Platforms } from "../compiler.js";
+import { Compiler, Platforms, type PlatformArg } from "../compiler.js";
 
 class CompileUtils {
     static async getPackageJSONVersion() {
         try {
             const packageJSON = await Bun.file(process.cwd() + "/package.json").json() as {version: string};
             return packageJSON.version;
-        } catch (err) {
+        } catch (err: any) {
             console.log("Error reading package.json: " + err.stack);
             process.exit(1);
         }

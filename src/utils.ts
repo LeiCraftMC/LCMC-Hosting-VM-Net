@@ -1,4 +1,7 @@
 
+export interface Dict<T> {
+    [key: string | number]: T;
+}
 
 class Utils {
     private static initialized = false;

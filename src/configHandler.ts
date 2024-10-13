@@ -1,24 +1,33 @@
 import fs from 'fs';
 import Utils from './utils.js';
 
-export interface NetRouteLike {
-    server: number;
-    ipv6: boolean;
+export interface ConfigLike {
+    enabled: boolean;
+    subnets: NetSubnetConfigLike[];
 }
 
-export interface NetInterfaceConfigLike {
+export interface NetSubnetConfigLike {
     subnet: number;
     publicIP4: string;
     publicIP6Prefix: string;
-    linuxIface: string;
+    targetIface: string;
     routes: NetRouteLike[];
 }
 
-export interface ConfigLike {
-    enabled: boolean;
-    interfaces: NetInterfaceConfigLike[];
+export interface NetRouteLike {
+    server: number;
+    ipv4?: {
+        addr: string;
+        targetIface: string;
+    }
+    ipv6?: boolean;
+    ports?: NetRoutePortConfigLike[];
 }
 
+export type NetRoutePortConfigLike = {
+    pub: string | number;
+    local: string | number;
+} | string | number;
 
 export class ConfigHandler {
 
@@ -63,6 +72,16 @@ export class ConfigHandler {
         return this.loadConfig();
     }
 
+    static saveConfig(config: ConfigLike) {
+        try {
+            fs.writeFileSync(this.basePath + "/config.json", JSON.stringify(config, null, 4));
+            this.config = config;
+        } catch (error: any) {
+            console.error(`Error saving config configuration: ${error.stack}`);
+        }
+    }
+
+
     private static createConfigDir() {
         if (!fs.existsSync(this.basePath)) {
             fs.mkdirSync(this.basePath, { recursive: true });
@@ -103,7 +122,7 @@ export class ConfigHandler {
 
     private static readonly defaultConfig: ConfigLike = {
         enabled: true,
-        interfaces: []
+        subnets: []
     }
 
 }

@@ -26,7 +26,7 @@ class IP6TablesCMD extends IPTablesCMD {
 
 class IPAddrCMD {
 
-    protected static baseCMD = "ip addr -t nat";
+    protected static baseCMD = "ip addr";
 
     static async add(ipPrefix: string, subnet: number, server: number, iface: string) {
         const fullCMD = `${this.baseCMD} add ${ipPrefix}:${subnet}::${server} dev ${iface}`;

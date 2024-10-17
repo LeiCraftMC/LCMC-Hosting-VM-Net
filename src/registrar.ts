@@ -1,4 +1,4 @@
-import type { ConfigLike, NetSubnetConfigLike, NetRouteLike } from "./configHandler.js";
+import type { ConfigLike, NetSubnetConfigLike, NetRouteLike, NetRoutePortConfigLike } from "./configHandler.js";
 
 class ShellCMD {
     static async run(cmd: string) {
@@ -117,17 +117,40 @@ export class Registrar {
     }
 
     private static async setupPerServer(enable: boolean, serverID: string, config: NetRouteLike, subnetID: string, subnetConfig: Omit<NetSubnetConfigLike, "routes">) {
+        await Promise.all([
+            this.setupServerIPv4Forwarding(enable, serverID, config, subnetID),
+            this.setupServerIPv6Forwarding(enable, serverID, config, subnetID, subnetConfig),
+            this.setupServerPortForwarding(enable, serverID, config, subnetID, subnetConfig)
+        ]);
+    }
+
+    private static async setupServerIPv4Forwarding(enable: boolean, serverID: string, config: NetRouteLike, subnetID: string) {
         if (config.ipv4) {
             await IPTablesCMD.run(enable, `PREROUTING -p tcp -d ${config.ipv4.addr} -i ${config.ipv4.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}`);
             await IPTablesCMD.run(enable, `PREROUTING -p udp -d ${config.ipv4.addr} -i ${config.ipv4.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}`);
         }
+    }
 
+    private static async setupServerIPv6Forwarding(enable: boolean, serverID: string, config: NetRouteLike, subnetID: string, subnetConfig: Omit<NetSubnetConfigLike, "routes">) {
         if (config.ipv6) {
             await IPAddrCMD.run(enable, subnetConfig.publicIP6Prefix, subnetID, serverID, subnetConfig.targetIface);
             await IP6TablesCMD.run(enable, `PREROUTING -p tcp -d ${subnetConfig.publicIP6Prefix}:${subnetID}::${serverID} -i ${subnetConfig.targetIface} -j DNAT --to-destination fd00:${subnetID}::${serverID}`);
             await IP6TablesCMD.run(enable, `PREROUTING -p udp -d ${subnetConfig.publicIP6Prefix}:${subnetID}::${serverID} -i ${subnetConfig.targetIface} -j DNAT --to-destination fd00:${subnetID}::${serverID}`);
+            
+            if (config.extraIPv6 && config.extraIPv6.length > 0) {
+                for (const ending of config.extraIPv6) {
+                    if (/^[0-9a-f]$/.test(ending)) {
+                        const fullServerID = serverID + ending;
+                        await IPAddrCMD.run(enable, subnetConfig.publicIP6Prefix, subnetID, fullServerID, subnetConfig.targetIface);
+                        await IP6TablesCMD.run(enable, `PREROUTING -p tcp -d ${subnetConfig.publicIP6Prefix}:${subnetID}::${fullServerID} -i ${subnetConfig.targetIface} -j DNAT --to-destination fd00:${subnetID}::${serverID}`);
+                        await IP6TablesCMD.run(enable, `PREROUTING -p udp -d ${subnetConfig.publicIP6Prefix}:${subnetID}::${fullServerID} -i ${subnetConfig.targetIface} -j DNAT --to-destination fd00:${subnetID}::${serverID}`);
+                    }
+                }
+            }
         }
+    }
 
+    private static async setupServerPortForwarding(enable: boolean, serverID: string, config: NetRouteLike, subnetID: string, subnetConfig: Omit<NetSubnetConfigLike, "routes">) {
         if (config.ports) {
             for (const portConfig of config.ports) {
                 if (typeof portConfig === "string" || typeof portConfig === "number") {
@@ -142,7 +165,5 @@ export class Registrar {
             }
         }
     }
-
 }
-
 

@@ -19,6 +19,7 @@ export interface NetRouteLike {
         targetIface: string;
     }
     ipv6?: boolean;
+    extraIPv6: string[]; // 0-9, a-f (added to server id)
     ports?: NetRoutePortConfigLike[];
 }
 

@@ -1,5 +1,15 @@
 # vm-net
 
+# Install
+
+`$ bash <(curl -s https://raw.githubusercontent.com/LeiCraftMC/LCMC-Hosting-VM-Net/refs/heads/master/scripts/bash/install.sh)`
+
+# Uninstall
+
+`$ bash <(curl -s https://raw.githubusercontent.com/LeiCraftMC/LCMC-Hosting-VM-Net/refs/heads/master/scripts/bash/uninstall.sh)`
+
+# Running from Sources
+
 To install dependencies:
 
 ```bash
@@ -12,4 +22,3 @@ To run:
 bun run index.ts
 ```
 
-This project was created using `bun init` in bun v1.1.30. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.

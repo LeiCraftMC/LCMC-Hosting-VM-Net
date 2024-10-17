@@ -9,23 +9,25 @@ class ShellCMD {
             console.error(`Failed to execute: ${cmd}`);
         }
     }
+    static async get(cmd: string) {
+        try {
+            return (await Bun.$`${{ raw: cmd }}`.text()).trim();
+        } catch {
+            return null;
+        }
+    }
 }
 
 class IPTablesCMD {
     protected static baseCMD = "iptables -t nat";
 
-    static async enable(cmd: string) {
-        const fullCMD = `${this.baseCMD} -A ${cmd}`;
-        await ShellCMD.run(fullCMD);
-    }
-
-    static async disable(cmd: string) {
-        const fullCMD = `${this.baseCMD} -D ${cmd}`;
-        await ShellCMD.run(fullCMD);
-    }
-
     static async run(enable: boolean, cmd: string) {
         const fullCMD = `${this.baseCMD} -${enable ? "A" : "D"} ${cmd}`;
+        await ShellCMD.run(fullCMD);
+    }
+
+    static async runInsert(enable: boolean, cmd: string) {
+        const fullCMD = `${this.baseCMD} -${enable ? "I" : "D"} ${cmd}`;
         await ShellCMD.run(fullCMD);
     }
 }
@@ -39,22 +41,41 @@ class IPAddrCMD {
 
     protected static baseCMD = "ip addr";
 
-    static async add(ipPrefix: string, subnet: string, server: string, iface: string) {
-        const fullCMD = `${this.baseCMD} add ${ipPrefix}:${subnet}::${server} dev ${iface}`;
-        await ShellCMD.run(fullCMD);
-    }
-
-    static async disable(ipPrefix: string, subnet: string, server: string, iface: string) {
-        const fullCMD = `${this.baseCMD} del ${ipPrefix}:${subnet}::${server} dev ${iface}`;
-        await ShellCMD.run(fullCMD);
-    }
-
     static async run(enable: boolean, ipPrefix: string, subnet: string, server: string, iface: string) {
         const fullCMD = `${this.baseCMD} ${enable ? "add" : "del"} ${ipPrefix}:${subnet}::${server} dev ${iface}`;
         await ShellCMD.run(fullCMD);
     }
 
 }
+
+class IPRuleCMD {
+
+    protected static baseCMD = "ip rule ";
+
+    static async run(enable: boolean, subnet: string, server: string) {
+        const fullCMD = `${this.baseCMD} ${enable ? "add" : "del"} from 192.168.${subnet}.${server} lookup 8006${subnet}${server}`;
+        await ShellCMD.run(fullCMD);
+    }
+
+}
+
+class IPRouteCMD {
+
+    protected static baseCMD = "ip route ";
+
+    static async run(enable: boolean, subnet: string, server: string, iface: string) {
+        const gateway = ShellCMD.get(`ip route show dev ${iface} | awk '/default/ {print $3}'`)
+        if (!gateway) {
+            console.error(`Failed to get gateway for ${iface}`);
+            return;
+        }
+        const fullCMD = `${this.baseCMD} ${enable ? "add" : "del"} default via ${gateway} dev ${iface} table 8006${subnet}${server}`;
+        await ShellCMD.run(fullCMD);
+    }
+
+}
+
+
 
 export class Registrar {
 
@@ -126,6 +147,10 @@ export class Registrar {
 
     private static async setupServerIPv4Forwarding(enable: boolean, serverID: string, config: NetRouteLike, subnetID: string) {
         if (config.ipv4) {
+            await IPTablesCMD.run(enable, `POSTROUTING -s 192.168.${subnetID}.${serverID} -o ${config.ipv4.targetIface} -j MASQUERADE`);
+            await IPRouteCMD.run(enable, subnetID, serverID, config.ipv4.targetIface);
+            await IPRuleCMD.run(enable, subnetID, serverID);
+
             await IPTablesCMD.run(enable, `PREROUTING -p tcp -d ${config.ipv4.addr} -i ${config.ipv4.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}`);
             await IPTablesCMD.run(enable, `PREROUTING -p udp -d ${config.ipv4.addr} -i ${config.ipv4.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}`);
         }

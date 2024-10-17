@@ -1,12 +1,13 @@
 # vm-net
 
 # Install
-
-`$ bash <(curl -s https://raw.githubusercontent.com/LeiCraftMC/LCMC-Hosting-VM-Net/refs/heads/master/scripts/bash/install.sh)`
-
+```bash
+bash <(curl -s https://raw.githubusercontent.com/LeiCraftMC/LCMC-Hosting-VM-Net/refs/heads/master/scripts/bash/install.sh)
+```
 # Uninstall
-
-`$ bash <(curl -s https://raw.githubusercontent.com/LeiCraftMC/LCMC-Hosting-VM-Net/refs/heads/master/scripts/bash/uninstall.sh)`
+```bash
+bash <(curl -s https://raw.githubusercontent.com/LeiCraftMC/LCMC-Hosting-VM-Net/refs/heads/master/scripts/bash/uninstall.sh)
+```
 
 # Running from Sources
 

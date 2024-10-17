@@ -64,7 +64,7 @@ class IPRouteCMD {
     protected static baseCMD = "ip route ";
 
     static async run(enable: boolean, subnet: string, server: string, iface: string) {
-        const gateway = ShellCMD.get(`ip route show dev ${iface} | awk '/default/ {print $3}'`)
+        const gateway = await ShellCMD.get(`ip route show dev ${iface} | awk '/default/ {print $3}'`)
         if (!gateway) {
             console.error(`Failed to get gateway for ${iface}`);
             return;

@@ -5,8 +5,9 @@ Execute as root
 ```bash
 bash <(curl -s https://raw.githubusercontent.com/LeiCraftMC/LCMC-Hosting-VM-Net/refs/heads/master/scripts/bash/install.sh)
 ```
-`/etc/systemd/system/lcmc-hosting-vm-net.service`
-```
+
+Create the File `/etc/systemd/system/lcmc-hosting-vm-net.service` and put in the contents below.
+```bash
 [Unit]
 Description=LCMC-Hosting-VM-Net
 After=network.target
@@ -21,6 +22,11 @@ RestartSec=5s
 
 [Install]
 WantedBy=multi-user.target
+```
+
+Enable the Service with:
+```
+sudo systemctl enable --now lcmc-hosting-vm-net.service
 ```
 
 # Uninstall

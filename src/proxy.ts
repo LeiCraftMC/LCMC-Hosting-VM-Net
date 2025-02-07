@@ -139,37 +139,32 @@ export class UDPProxy extends NetProxy {
 
 export class ProxyHandler {
 
-    protected proxies: NetProxy[] = [];
+    protected static proxies: NetProxy[] = [];
 
-    constructor(
-        protected readonly config: ConfigLike
-    ) {}
-
-    async start() {
-        this.handle(true);
+    static async start(config: ConfigLike) {
+        await this.handle(true, config);
     }
 
-    async stop() {
-        this.handle(false);
+    static async stop(config: ConfigLike) {
+        await this.handle(false, config);
 
         for (const proxy of this.proxies) {
             proxy.stop();
         }
     }
 
-    private async handle(enable: boolean) {
-        subnet: for (const [subnetID, subnetConfig] of Object.entries(this.config.subnets)) {
+    private static async handle(enable: boolean, config: ConfigLike) {
+        subnet: for (const [subnetID, subnetConfig] of Object.entries(config.subnets)) {
             server: for (const [serverID, serverConfig] of Object.entries(subnetConfig.servers)) {
                 if (!serverConfig.ports) continue server;
                 for (const portConfig of serverConfig.ports) {
-                    this.handlePortConfig(enable, portConfig, subnetConfig.publicIP4, subnetID, serverID);
-                    subnetConfig.publicIP4
+                    await this.handlePortConfig(enable, portConfig, subnetConfig.publicIP4, subnetID, serverID);
                 }
             }
         }
     }
 
-    private async handlePortConfig(enable: boolean, portConfig: NetRoutePortConfigLike, publicIP4: string, subnetID: string, serverID: string) {
+    private static async handlePortConfig(enable: boolean, portConfig: NetRoutePortConfigLike, publicIP4: string, subnetID: string, serverID: string) {
 
         let pubPortRange: string;
         if (typeof portConfig === "string" || typeof portConfig === "number") {

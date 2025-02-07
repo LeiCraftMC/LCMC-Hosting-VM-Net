@@ -69,7 +69,7 @@ export class RunCMD extends CLICMD {
     public usage = "run";
 
     async run() {
-        Service.start();
+        await Service.start();
     }
 }
 

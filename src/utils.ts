@@ -28,7 +28,7 @@ class Utils {
             this.runStatus = exitCode === 0 ? "shutdown" : "shutdown_on_error";
             
             if (Service.isRunning === true) {
-                await Service.stop()
+                await Service.stop();
             }
 
             console.log('Shutting down...');

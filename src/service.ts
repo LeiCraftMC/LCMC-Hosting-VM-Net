@@ -1,11 +1,13 @@
 import { ConfigHandler } from "./configHandler";
+import { ProxyHandler } from "./proxy";
 import { Registrar } from "./registrar";
 
 export class Service {
     static isRunning = false;
 
-
     static async start() {
+        this.isRunning = true;
+
         console.log("Enabling VM-Network...");
 
         const config = ConfigHandler.loadConfig();
@@ -13,6 +15,8 @@ export class Service {
         await Registrar.register(config);
 
         console.log("VM-Network enabled!");
+
+        ProxyHandler.start(config);
 
     }
 
@@ -23,5 +27,7 @@ export class Service {
         await Registrar.unregister(config);
         
         console.log("VM-Network disabled!");
+
+        await ProxyHandler.stop(config);
     }
 }

@@ -174,8 +174,11 @@ export class ProxyHandler {
         }
 
         // Firewall rules
-        IPTablesCMD.run(enable, `INPUT -p tcp -d ${publicIP4} --dport ${pubPortRange} -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT`);
-        IPTablesCMD.run(enable, `OUTPUT -p tcp --sport ${pubPortRange} -m conntrack --ctstate ESTABLISHED -j ACCEPT`);
+        await IPTablesCMD.run(enable, `INPUT -p tcp -d ${publicIP4} --dport ${pubPortRange} -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT`);
+        await IPTablesCMD.run(enable, `OUTPUT -p tcp --sport ${pubPortRange} -m conntrack --ctstate ESTABLISHED -j ACCEPT`);
+
+        await IPTablesCMD.run(enable, `INPUT -p tcp -d ${publicIP4} --dport ${pubPortRange} -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT`);
+        await IPTablesCMD.run(enable, `OUTPUT -p tcp --sport ${pubPortRange} -m conntrack --ctstate ESTABLISHED -j ACCEPT`);
         
         const portMap: Array<
             { pub: number, local: number }

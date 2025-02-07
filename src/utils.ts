@@ -13,8 +13,8 @@ class Utils {
         if (this.initialized) return;
         this.initialized = true;
         
-        process.once("SIGINT", Utils.gracefulShutdown);
-        process.once("SIGTERM", Utils.gracefulShutdown);
+        process.once("SIGINT", Utils.gracefulShutdown.bind(Utils, 0));
+        process.once("SIGTERM", Utils.gracefulShutdown.bind(Utils, 0));
 
         process.once("uncaughtException", Utils.uncaughtException);
         process.once("unhandledRejection", Utils.unhandledRejection);

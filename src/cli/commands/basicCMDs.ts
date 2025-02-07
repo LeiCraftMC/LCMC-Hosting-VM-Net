@@ -64,9 +64,9 @@ export class NetReloadCMD extends CLICMD {
 }
 
 export class RunCMD extends CLICMD {
-    public name = "reload";
+    public name = "run";
     public description = "Run VM-Network And Proxy";
-    public usage = "reload";
+    public usage = "run";
 
     async run() {
         Service.start();

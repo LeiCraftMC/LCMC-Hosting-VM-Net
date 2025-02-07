@@ -2,7 +2,7 @@
 	"name": "vm-net",
 	"module": "index.ts",
 	"type": "module",
-	"version": "1.0.0",
+	"version": "1.3.0",
 	"scripts": {
 		"compile": "bun run ./scripts/compile",
 		"test": "bun test",

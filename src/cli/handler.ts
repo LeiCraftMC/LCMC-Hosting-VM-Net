@@ -1,5 +1,5 @@
 import { CLISubCMD } from "./cmd.js";
-import { NetDownCMD, NetReloadCMD, NetUPCMD, VersionCMD } from "./commands/basicCMDs.js";
+import { NetDownCMD, NetReloadCMD, NetUPCMD, RunCMD, VersionCMD } from "./commands/basicCMDs.js";
 
 export class CLICMDHandler extends CLISubCMD {
     public name = "root";
@@ -21,6 +21,7 @@ export class CLICMDHandler extends CLISubCMD {
         this.register(new NetUPCMD());
         this.register(new NetDownCMD());
         this.register(new NetReloadCMD());
+        this.register(new RunCMD());
 
         //this.register(new ConfigCMD());
     }

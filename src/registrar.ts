@@ -25,8 +25,8 @@ export class ForwardingHandler {
 
     private static async runCMDs(enable: boolean, config: ConfigLike) {
 
-        await IPTablesNatCMD.run(enable, `PREROUTING -m addrtype --dst-type LOCAL -j LCMC-HOSTING-VM-NET_PRO`);
-        await IPTablesNatCMD.run(enable, `OUTPUT ! -d 127.0.0.0/8 -m addrtype --dst-type LOCAL -j LCMC-HOSTING-VM-NET_PRO`);
+        await IPTablesNatCMD.runInsert(enable, `PREROUTING -m addrtype --dst-type LOCAL -j LCMC-HOSTING-VM-NET_PRO`);
+        await IPTablesNatCMD.runInsert(enable, `OUTPUT ! -d 127.0.0.0/8 -m addrtype --dst-type LOCAL -j LCMC-HOSTING-VM-NET_PRO`);
 
         const promises: Promise<void>[] = [];
 
@@ -39,10 +39,10 @@ export class ForwardingHandler {
 
     private static async setupPerSubnet(enable: boolean, subnetID: string, config: NetSubnetConfigLike) {
 
-        await IPTablesCMD.run(enable, `FORWARD -o ${config.iface} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT`);
-        await IPTablesCMD.run(enable, `FORWARD -o ${config.iface} -j LCMC-HOSTING-VM-NET_FW`);
-        await IPTablesCMD.run(enable, `FORWARD -i ${config.iface} ! -o ${config.iface} -j ACCEPT`);
-        await IPTablesCMD.run(enable, `FORWARD -i ${config.iface} -o ${config.iface} -j ACCEPT`);
+        await IPTablesCMD.runInsert(enable, `FORWARD -o ${config.iface} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT`);
+        await IPTablesCMD.runInsert(enable, `FORWARD -o ${config.iface} -j LCMC-HOSTING-VM-NET_FW`);
+        await IPTablesCMD.runInsert(enable, `FORWARD -i ${config.iface} ! -o ${config.iface} -j ACCEPT`);
+        await IPTablesCMD.runInsert(enable, `FORWARD -i ${config.iface} -o ${config.iface} -j ACCEPT`);
 
         await IPTablesNatCMD.run(enable, `LCMC-HOSTING-VM-NET_PRO -i ${config.iface} -j RETURN`);
 

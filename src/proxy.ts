@@ -92,6 +92,7 @@ export class TCPProxy extends NetProxy {
 
 
     public start() {
+        console.log(`TCP-Proxy listening on ${this.proxyHost}:${this.proxyPort}`);
     }
 
     public stop() {

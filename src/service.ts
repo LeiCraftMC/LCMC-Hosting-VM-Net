@@ -41,6 +41,9 @@ export class Service {
             await ProxyHandler.start(config);
             console.log("Proxy enabled!");
         }
+
+        // Keep the process running
+        process.stdin.resume();
     }
 
     static async stop() {

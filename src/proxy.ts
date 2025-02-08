@@ -31,7 +31,7 @@ export class TCPProxy extends NetProxy {
     ) {
         super(proxyHost, proxyPort, targetHost, targetPort);
 
-        this.proxy = net.createServer()
+        this.proxy = net.createServer();
         
         this.proxy.on("connection", (clientSocket) => {
             // Create connection to target server

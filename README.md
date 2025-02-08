@@ -14,7 +14,7 @@ After=network.target
 
 [Service]
 User=root
-ExecStart=/usr/local/bin/lcmc-hosting-vm-net run
+ExecStart=/usr/local/bin/lcmc-hosting-vm-net run --use-proxy
 Restart=on-failure
 StartLimitInterval=180
 StartLimitBurst=30

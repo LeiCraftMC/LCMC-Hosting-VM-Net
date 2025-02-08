@@ -34,8 +34,6 @@ export class TCPProxy extends NetProxy {
         this.proxy = net.createServer()
         
         this.proxy.on("connection", (clientSocket) => {
-            console.log(`Client connected from ${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
-
             // Create connection to target server
             const targetSocket = net.createConnection(this.targetPort, this.targetHost);
 

@@ -207,9 +207,12 @@ export class ProxyHandler {
         }
 
         // Firewall rules
-        await IPTablesCMD.run(true, `LCMC-HOSTING-VM-NET_IN -p tcp -m tcp -d ${publicIP4} --dport ${pubPortRange} -j ACCEPT`);
-        await IPTablesCMD.run(true, `LCMC-HOSTING-VM-NET_IN -p udp -m udp -d ${publicIP4} --dport ${pubPortRange} -j ACCEPT`);
+        //await IPTablesCMD.run(true, `LCMC-HOSTING-VM-NET_IN -p tcp -m tcp -d ${publicIP4} --dport ${pubPortRange} -j ACCEPT`);
+        //await IPTablesCMD.run(true, `LCMC-HOSTING-VM-NET_IN -p udp -m udp -d ${publicIP4} --dport ${pubPortRange} -j ACCEPT`);
         
+        await IPTablesCMD.run(true, `LCMC-HOSTING-VM-NET_IN -p tcp -m tcp --dport ${pubPortRange} -j ACCEPT`);
+        await IPTablesCMD.run(true, `LCMC-HOSTING-VM-NET_IN -p udp -m udp --dport ${pubPortRange} -j ACCEPT`);
+
         const portMap: Array<
             { pub: number, local: number }
         > = [];

@@ -249,8 +249,8 @@ export class ProxyHandler {
                 const udpProxy = new UDPProxy(publicIP4, pub, `192.168.${subnetID}.${serverID}`, local);
                 tcpProxy.start();
                 udpProxy.start();
-            } catch (err) {
-                console.error(`Failed to create proxy for ${publicIP4}:${pub} -> 192.168.${subnetID}.${serverID}:${local}`);
+            } catch (err: any) {
+                console.error(`Failed to create proxy for ${publicIP4}:${pub} -> 192.168.${subnetID}.${serverID}:${local}, ${err.stack}`);
             }
         }
 

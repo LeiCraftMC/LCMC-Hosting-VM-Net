@@ -99,8 +99,8 @@ export class Service {
 
         for (const [subnetID, subnetConfig] of Object.entries(subnets)) {
             promises.push(
-                IPTablesNatCMD.run(enable, `POSTROUTING -s '192.168.${subnetID}.0/24' -o ${subnetConfig.targetIface} -j MASQUERADE`),
-                IP6TablesNatCMD.run(enable, `POSTROUTING -s 'fd00:${subnetID}::/64' -o ${subnetConfig.targetIface} -j MASQUERADE`)
+                IPTablesNatCMD.run(enable, `POSTROUTING -s '192.168.${subnetID}.0/24' ! -o ${subnetConfig.iface} -j MASQUERADE`),
+                IP6TablesNatCMD.run(enable, `POSTROUTING -s 'fd00:${subnetID}::/64' ! -o ${subnetConfig.iface} -j MASQUERADE`)
             );
         }
 

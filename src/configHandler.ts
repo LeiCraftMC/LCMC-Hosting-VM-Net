@@ -10,6 +10,7 @@ export interface NetSubnetConfigLike {
     publicIP4: string;
     publicIP6Prefix: string;
     targetIface: string;
+    iface: string;
     servers: {[server: string]: NetRouteLike};
 }
 

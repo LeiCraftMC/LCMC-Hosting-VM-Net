@@ -120,8 +120,12 @@ export class ForwardingHandler {
                 await IPTablesNatCMD.run(enable, `POSTROUTING -s 192.168.${subnetID}.${serverID} -d 192.168.${subnetID}.${serverID} -p tcp -m tcp --dport ${localPRWithColon} -j MASQUERADE`)
                 await IPTablesNatCMD.run(enable, `POSTROUTING -s 192.168.${subnetID}.${serverID} -d 192.168.${subnetID}.${serverID} -p udp -m udp --dport ${localPRWithColon} -j MASQUERADE`)
 
-                await IPTablesNatCMD.run(enable, `LCMC-HOSTING-VM-NET_PRO -d ${subnetConfig.publicIP4} ! -i ${subnetConfig.iface} -p tcp -m tcp --dport ${pubPRWithColon} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${localPRWithHyphen}`);
-                await IPTablesNatCMD.run(enable, `LCMC-HOSTING-VM-NET_PRO -d ${subnetConfig.publicIP4} ! -i ${subnetConfig.iface} -p udp -m udp --dport ${pubPRWithColon} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${localPRWithHyphen}`);
+                //await IPTablesNatCMD.run(enable, `LCMC-HOSTING-VM-NET_PRO -d ${subnetConfig.publicIP4} ! -i ${subnetConfig.iface} -p tcp -m tcp --dport ${pubPRWithColon} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${localPRWithHyphen}`);
+                //await IPTablesNatCMD.run(enable, `LCMC-HOSTING-VM-NET_PRO -d ${subnetConfig.publicIP4} ! -i ${subnetConfig.iface} -p udp -m udp --dport ${pubPRWithColon} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${localPRWithHyphen}`);
+
+                await IPTablesNatCMD.run(enable, `LCMC-HOSTING-VM-NET_PRO ! -i ${subnetConfig.iface} -p tcp -m tcp --dport ${pubPRWithColon} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${localPRWithHyphen}`);
+                await IPTablesNatCMD.run(enable, `LCMC-HOSTING-VM-NET_PRO ! -i ${subnetConfig.iface} -p udp -m udp --dport ${pubPRWithColon} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${localPRWithHyphen}`);
+
 
             }
         }

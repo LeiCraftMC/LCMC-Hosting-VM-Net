@@ -3,6 +3,7 @@ import dgram from "dgram";
 import { type Dict } from "./utils.js";
 import type { ConfigLike, NetRoutePortConfigLike } from "./configHandler.js";
 import { IPTablesCMD, ShellCMD } from "./linuxUtils.js";
+import { createProxy, TcpProxy } from "node-tcp-proxy";
 
 
 abstract class NetProxy {
@@ -18,7 +19,7 @@ abstract class NetProxy {
     abstract stop(): void;
 
 }
-
+/*
 export class TCPProxy extends NetProxy {
     
     protected readonly proxy: net.Server;
@@ -73,7 +74,30 @@ export class TCPProxy extends NetProxy {
         this.proxy.close();
     }
 }
+*/
 
+export class TCPProxy extends NetProxy {
+    protected readonly proxy: TcpProxy;
+
+    constructor(
+        proxyHost: string,
+        proxyPort: number,
+        targetHost: string,
+        targetPort: number
+    ) {
+        super(proxyHost, proxyPort, targetHost, targetPort);
+
+        this.proxy = createProxy(proxyPort, [targetHost], [targetPort]);
+    }
+
+
+    public start() {
+    }
+
+    public stop() {
+        this.proxy.end();
+    }
+}
 
 export class UDPProxy extends NetProxy {
     protected readonly proxy: dgram.Socket;

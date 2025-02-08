@@ -2,7 +2,7 @@
 	"name": "vm-net",
 	"module": "index.ts",
 	"type": "module",
-	"version": "1.4.1",
+	"version": "1.5.2b",
 	"scripts": {
 		"compile": "bun run ./scripts/compile",
 		"test": "bun test",
@@ -16,6 +16,7 @@
 	},
 	"dependencies": {
 		"@cleverjs/cli": "^1.0.1",
-		"bun": "^1.1.30"
+		"bun": "^1.1.30",
+		"node-tcp-proxy": "^0.0.28"
 	}
 }

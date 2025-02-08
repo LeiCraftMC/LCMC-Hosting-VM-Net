@@ -87,7 +87,7 @@ export class TCPProxy extends NetProxy {
     ) {
         super(proxyHost, proxyPort, targetHost, targetPort);
 
-        this.proxy = createProxy(proxyPort, [targetHost], [targetPort]);
+        this.proxy = createProxy(proxyPort, targetHost, targetPort);
     }
 
 
@@ -250,7 +250,7 @@ export class ProxyHandler {
                 tcpProxy.start();
                 udpProxy.start();
             } catch (err: any) {
-                console.error(`Failed to create proxy for ${publicIP4}:${pub} -> 192.168.${subnetID}.${serverID}:${local}, ${err.stack}`);
+                console.error(`Failed to create proxy for ${publicIP4}:${pub} -> 192.168.${subnetID}.${serverID}:${local}, ${err}`);
             }
         }
 

@@ -17,7 +17,7 @@ export class ShellCMD {
 }
 
 export class IPTablesCMD {
-    protected static baseCMD = "iptables -t nat";
+    protected static baseCMD = "iptables";
 
     static async run(enable: boolean, cmd: string) {
         const fullCMD = `${this.baseCMD} -${enable ? "A" : "D"} ${cmd}`;
@@ -31,6 +31,14 @@ export class IPTablesCMD {
 }
 
 export class IP6TablesCMD extends IPTablesCMD {
+    protected static baseCMD = "ip6tables";
+}
+
+export class IPTablesNatCMD extends IPTablesCMD {
+    protected static baseCMD = "iptables -t nat";
+}
+
+export class IP6TablesNatCMD extends IP6TablesCMD {
     protected static baseCMD = "ip6tables -t nat";
 }
 

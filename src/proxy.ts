@@ -1,9 +1,8 @@
 import net from "net";
 import dgram from "dgram";
-import type { SocketHandler } from "bun";
 import { type Dict } from "./utils.js";
 import type { ConfigLike, NetRoutePortConfigLike } from "./configHandler.js";
-import { IPTablesCMD } from "./linuxUtils.js";
+import { IPTablesCMD, ShellCMD } from "./linuxUtils.js";
 
 
 abstract class NetProxy {
@@ -142,29 +141,41 @@ export class ProxyHandler {
     protected static proxies: NetProxy[] = [];
 
     static async start(config: ConfigLike) {
-        await this.handle(true, config);
-    }
+        await ShellCMD.run(`iptables -N LCMC-HOSTING-VM-NET_IN`);
+        await ShellCMD.run(`iptables -N LCMC-HOSTING-VM-NET_OUT`);
 
-    static async stop(config: ConfigLike) {
-        await this.handle(false, config);
+        await IPTablesCMD.runInsert(true, `INPUT -j LCMC-HOSTING-VM-NET_IN`);
+        await IPTablesCMD.runInsert(true, `OUTPUT -j LCMC-HOSTING-VM-NET_OUT`);
 
-        for (const proxy of this.proxies) {
-            proxy.stop();
-        }
-    }
+        await IPTablesCMD.run(true, `LCMC-HOSTING-VM-NET_IN -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT`);
+        await IPTablesCMD.run(true, `LCMC-HOSTING-VM-NET_OUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT`);
 
-    private static async handle(enable: boolean, config: ConfigLike) {
         subnet: for (const [subnetID, subnetConfig] of Object.entries(config.subnets)) {
             server: for (const [serverID, serverConfig] of Object.entries(subnetConfig.servers)) {
                 if (!serverConfig.ports) continue server;
                 for (const portConfig of serverConfig.ports) {
-                    await this.handlePortConfig(enable, portConfig, subnetConfig.publicIP4, subnetID, serverID);
+                    await this.setupPortProxy(portConfig, subnetConfig.publicIP4, subnetID, serverID);
                 }
             }
         }
     }
 
-    private static async handlePortConfig(enable: boolean, portConfig: NetRoutePortConfigLike, publicIP4: string, subnetID: string, serverID: string) {
+    static async stop(config: ConfigLike) {
+        for (const proxy of this.proxies) {
+            proxy.stop();
+        }
+
+        await IPTablesCMD.runInsert(false, `INPUT -j LCMC-HOSTING-VM-NET_IN`);
+        await IPTablesCMD.runInsert(false, `OUTPUT -j LCMC-HOSTING-VM-NET_OUT`);
+
+        await ShellCMD.run(`iptables -F LCMC-HOSTING-VM-NET_IN`);
+        await ShellCMD.run(`iptables -X LCMC-HOSTING-VM-NET_IN`);
+
+        await ShellCMD.run(`iptables -F LCMC-HOSTING-VM-NET_OUT`);
+        await ShellCMD.run(`iptables -X LCMC-HOSTING-VM-NET_OUT`);
+    }
+
+    private static async setupPortProxy(portConfig: NetRoutePortConfigLike, publicIP4: string, subnetID: string, serverID: string) {
 
         let pubPortRange: string;
         if (typeof portConfig === "string" || typeof portConfig === "number") {
@@ -174,11 +185,8 @@ export class ProxyHandler {
         }
 
         // Firewall rules
-        await IPTablesCMD.run(enable, `INPUT -p tcp -d ${publicIP4} --dport ${pubPortRange} -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT`);
-        await IPTablesCMD.run(enable, `OUTPUT -p tcp --sport ${pubPortRange} -m conntrack --ctstate ESTABLISHED -j ACCEPT`);
-
-        await IPTablesCMD.run(enable, `INPUT -p tcp -d ${publicIP4} --dport ${pubPortRange} -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT`);
-        await IPTablesCMD.run(enable, `OUTPUT -p tcp --sport ${pubPortRange} -m conntrack --ctstate ESTABLISHED -j ACCEPT`);
+        await IPTablesCMD.run(true, `LCMC-HOSTING-VM-NET_IN -p tcp -m tcp -d ${publicIP4} --dport ${pubPortRange} -j ACCEPT`);
+        await IPTablesCMD.run(true, `LCMC-HOSTING-VM-NET_IN -p udp -m udp -d ${publicIP4} --dport ${pubPortRange} -j ACCEPT`);
         
         const portMap: Array<
             { pub: number, local: number }
@@ -213,16 +221,14 @@ export class ProxyHandler {
             }
         }
 
-        if (enable) {
-            for (const { pub, local } of portMap) {
-                try {
-                    const tcpProxy = new TCPProxy(publicIP4, pub, `192.168.${subnetID}.${serverID}`, local);
-                    const udpProxy = new UDPProxy(publicIP4, pub, `192.168.${subnetID}.${serverID}`, local);
-                    tcpProxy.start();
-                    udpProxy.start();
-                } catch (err) {
-                    console.error(`Failed to create proxy for ${publicIP4}:${pub} -> 192.168.${subnetID}.${serverID}:${local}`);
-                }
+        for (const { pub, local } of portMap) {
+            try {
+                const tcpProxy = new TCPProxy(publicIP4, pub, `192.168.${subnetID}.${serverID}`, local);
+                const udpProxy = new UDPProxy(publicIP4, pub, `192.168.${subnetID}.${serverID}`, local);
+                tcpProxy.start();
+                udpProxy.start();
+            } catch (err) {
+                console.error(`Failed to create proxy for ${publicIP4}:${pub} -> 192.168.${subnetID}.${serverID}:${local}`);
             }
         }
 

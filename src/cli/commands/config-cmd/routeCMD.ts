@@ -1,5 +1,5 @@
+import { CLICMD, CLISubCMD } from "@cleverjs/cli";
 import { ConfigHandler } from "../../../configHandler.js";
-import { CLICMD, CLISubCMD } from "../../cmd.js";
 
 export class RoutesConfigCMD extends CLISubCMD {
     public name = "route";
@@ -36,7 +36,7 @@ class RouteAddCMD extends CLICMD {
     public description = "Add route";
     public usage = "add <vmid>";
 
-    public async run(args: string[], parent_args: string[]) {
+    public async run(args: string[]) {
         if (args.length !== 1) {
             console.log("Invalid number of arguments!"); return;
         }
@@ -61,7 +61,7 @@ class RouteDelCMD extends CLICMD {
     public description = "Delete route";
     public usage = "del <subnet> <vmid>";
 
-    public async run(args: string[], parent_args: string[]) {
+    public async run(args: string[]) {
 
     }
 

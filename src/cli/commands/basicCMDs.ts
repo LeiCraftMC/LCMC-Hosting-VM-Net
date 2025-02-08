@@ -1,7 +1,8 @@
+import { CLICMD, CMDFlag, CMDFlagsParser } from "@cleverjs/cli";
 import { ConfigHandler } from "../../configHandler.js";
-import { Registrar } from "../../registrar.js";
+import { ForwardingHandler } from "../../registrar.js";
 import { Service } from "../../service.js";
-import { CLICMD } from "../cmd.js";
+import Utils from "../../utils.js";
 
 export class VersionCMD extends CLICMD {
     public name = "-v";
@@ -13,6 +14,7 @@ export class VersionCMD extends CLICMD {
     }
 }
 
+/*
 export class NetUPCMD extends CLICMD {
     public name = "up";
     public description = "Enable VM-Network";
@@ -22,7 +24,7 @@ export class NetUPCMD extends CLICMD {
 
         const config = ConfigHandler.loadConfig();
         ConfigHandler.copyConfigToTemp();
-        await Registrar.register(config);
+        await ForwardingHandler.register(config);
 
         console.log("VM-Network enabled!");
     }
@@ -38,7 +40,7 @@ export class NetDownCMD extends CLICMD {
         console.log("Disabling VM-Network...");
 
         const config = ConfigHandler.loadLastUPConfig();
-        await Registrar.unregister(config);
+        await ForwardingHandler.unregister(config);
 
         console.log("VM-Network disabled!");
     }
@@ -53,23 +55,35 @@ export class NetReloadCMD extends CLICMD {
         console.log("Reloading VM-Network...");
 
         const lastConfig = ConfigHandler.loadLastUPConfig();
-        await Registrar.unregister(lastConfig);
+        await ForwardingHandler.unregister(lastConfig);
 
         const config = ConfigHandler.loadConfig();
         ConfigHandler.copyConfigToTemp();
-        await Registrar.register(config);
+        await ForwardingHandler.register(config);
 
         console.log("VM-Network reloaded!");
     }
 }
+*/
 
 export class RunCMD extends CLICMD {
     public name = "run";
     public description = "Run VM-Network And Proxy";
     public usage = "run";
 
-    async run() {
-        await Service.start();
+    readonly flagParser = new CMDFlagsParser({
+        "--use-proxy": new CMDFlag("bool", "Enable proxy"),
+        "--use-forwarding": new CMDFlag("bool", "Enable forwarding")
+    });
+
+    async run(args: string[]) {
+        const flags = this.flagParser.parse(args);
+        if (typeof flags === "string") {
+            console.error(flags);
+            Utils.gracefulShutdown(1); return;
+        }
+
+        await Service.start(!!flags["--use-proxy"], !!flags["--use-forwarding"]);
     }
 }
 

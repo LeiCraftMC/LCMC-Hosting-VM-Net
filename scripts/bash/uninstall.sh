@@ -45,4 +45,4 @@ function main {
     echo "LCMC-Hosting-VM-Net has been uninstalled successfully."
 }
 
-main
+main $@

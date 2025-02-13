@@ -3,7 +3,7 @@
 # Install
 Execute as root
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/LeiCraftMC/LCMC-Hosting-VM-Net/refs/heads/master/scripts/bash/install.sh)
+curl -fsSL https://raw.githubusercontent.com/LeiCraftMC/LCMC-Hosting-VM-Net/refs/heads/master/scripts/bash/install.sh | bash
 ```
 
 Create the File `/etc/systemd/system/lcmc-hosting-vm-net.service` and put in the contents below.
@@ -32,7 +32,7 @@ sudo systemctl enable --now lcmc-hosting-vm-net.service
 # Uninstall
 Execute as root
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/LeiCraftMC/LCMC-Hosting-VM-Net/refs/heads/master/scripts/bash/uninstall.sh)
+curl -fsSL https://raw.githubusercontent.com/LeiCraftMC/LCMC-Hosting-VM-Net/refs/heads/master/scripts/bash/uninstall.sh | bash
 ```
 
 # Running from Sources

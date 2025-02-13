@@ -41,6 +41,8 @@ function install {
 
 function main {
 
+    echo $@
+    
     #if [ -f "$BIN_PATH" ]; then
     #    echo "LCMC-Hosting-VM-Net is already installed."
     #    read -p "Do you want to reinstall or upgrade LCMC-Hosting-VM-Net? (y/n): " reinstall_choice

@@ -3,7 +3,7 @@
 # Install
 Execute as root
 ```bash
-curl -fsSL https://raw.githubusercontent.com/LeiCraftMC/LCMC-Hosting-VM-Net/refs/heads/master/scripts/bash/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/LeiCraftMC/LCMC-Hosting-VM-Net/refs/heads/master/scripts/bash/install.sh | bash -s -- latest
 ```
 
 Create the File `/etc/systemd/system/lcmc-hosting-vm-net.service` and put in the contents below.

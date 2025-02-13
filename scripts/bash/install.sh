@@ -49,7 +49,7 @@ function main {
             exit 1
         fi
     fi
-
+    echo $1
     install $1
 
     echo "LCMC-Hosting-VM-Net has been installed successfully."

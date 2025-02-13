@@ -40,8 +40,6 @@ function install {
 }
 
 function main {
-
-    echo $@
     
     #if [ -f "$BIN_PATH" ]; then
     #    echo "LCMC-Hosting-VM-Net is already installed."
@@ -57,4 +55,4 @@ function main {
     echo "LCMC-Hosting-VM-Net has been installed successfully."
 }
 
-main
+main $@

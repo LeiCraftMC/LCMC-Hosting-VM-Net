@@ -33,11 +33,11 @@ function main {
         exit 1
     fi
 
-    read -p "Are you sure you want to uninstall LCMC-Hosting-VM-Net? (y/n): " confirm
-    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-        echo "Uninstallation aborted."
-        exit 1
-    fi
+    #read -p "Are you sure you want to uninstall LCMC-Hosting-VM-Net? (y/n): " confirm
+    #if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+    #    echo "Uninstallation aborted."
+    #    exit 1
+    #fi
 
     delete_bin
     delete_configs

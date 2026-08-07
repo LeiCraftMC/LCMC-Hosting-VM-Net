@@ -1,0 +1,19 @@
+import { CLIBaseCommand } from "@cleverjs/cli";
+import { Logger } from "../utils/logger";
+
+export class VersionCMD extends CLIBaseCommand {
+    
+    constructor() {
+        super({
+            name: "version",
+            description: "Prints the version of the tool.",
+            aliases: ["-v", "--version"]
+        });
+    }
+
+    async run() {
+        const version = process.env.APP_VERSION || "unknown";
+        Logger.log(`LeiCraft_MC Hosting VM-Net ${version}`);
+        return true;
+    }
+}

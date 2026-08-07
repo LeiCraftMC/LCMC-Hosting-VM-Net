@@ -1,20 +1,23 @@
 {
-	"name": "vm-net",
+	"name": "lcmc-hosting-vm-net",
 	"module": "index.ts",
 	"type": "module",
-	"version": "1.0.0",
+	"private": true,
 	"scripts": {
-		"compile": "bun run ./scripts/compile",
+		"typecheck": "tsc -p ./tsconfig/tsconfig.typecheck.json && echo 'Typecheck passed!'",
 		"test": "bun test",
-		"patches": "echo 'No patches specified'"
+		"dev": "bun run --watch src/index.ts",
+		"compile": "bun run ./scripts/compile",
+		"start": "bun run scripts/entrypoint.ts"
 	},
 	"devDependencies": {
 		"@types/bun": "latest"
 	},
 	"peerDependencies": {
-		"typescript": "^5.6.3"
+		"typescript": "^7.0.0"
 	},
 	"dependencies": {
-		"bun": "^1.1.30"
+		"@cleverjs/cli": "^2.4.0",
+		"zod": "^4.4.3"
 	}
 }

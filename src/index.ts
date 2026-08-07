@@ -1,21 +1,31 @@
-import { CLICMDHandler } from "./cli/handler.js";
+import { Logger } from "./utils/logger";
+import { CLIApp, CLICommandArg, CLICommandArgParser, CLICommandContext, type CLICMDExecEnv } from "@cleverjs/cli";
+import { VersionCMD } from "./commands/versionCMD";
+import { NetDownCMD, NetReloadCMD, NetUPCMD } from "./commands/basicControlCMDs";
 
-export default class Main {
-
-    static async init() {
-        const args = process.argv.slice(2);
-        
-        if (!args[0]) {
-            args.push("help");
+new CLIApp({
+    globalFlags: CLICommandArg.defineCLIFlagSpecs([
+        {
+            name: "log-level",
+            type: "enum",
+            allowedValues: ["debug" , "info" , "warn" , "error" , "critical"],
+            description: "Set the log level for the application.",
+            default: "info"
         }
+    ]),
+    logger: Logger,
+    exitOnError: true
+})
+    .register(new VersionCMD())
+    .register(new NetUPCMD())
+    .register(new NetDownCMD())
+    .register(new NetReloadCMD())
 
-        await CLICMDHandler.getInstance().run(
-            args.map(arg => arg.toLowerCase())
-                .filter(arg => arg),
-            []
-        );
-    }
+    .use(async (args, ctx, next) => {
 
-}
+        Logger.setLogLevel(args["log-level"]);
 
-Main.init();
+        return await next();
+    })
+
+    .handle(process.argv.slice(2), "shell");

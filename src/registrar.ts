@@ -1,4 +1,4 @@
-import type { ConfigLike, NetSubnetConfigLike, NetRouteLike, NetRoutePortConfigLike } from "./configHandler.js";
+import type { VMNetConfig } from "./utils/vm-net-config.js";
 
 class ShellCMD {
     static async run(cmd: string) {
@@ -79,7 +79,7 @@ class IPRouteCMD {
 
 export class Registrar {
 
-    static async register(config: ConfigLike) {
+    static async register(config: VMNetConfig.Types.ConfigSchema) {
         if (config.enabled) {
             await Promise.all([
                 this.enableIPForwarding(),
@@ -88,13 +88,13 @@ export class Registrar {
         }
     }
 
-    static async unregister(config: ConfigLike) {
+    static async unregister(config: VMNetConfig.Types.ConfigSchema) {
         if (config.enabled) {
             await this.runCMDs(false, config);
         }
     }
 
-    private static async runCMDs(enable: boolean, config: ConfigLike) {
+    private static async runCMDs(enable: boolean, config: VMNetConfig.Types.ConfigSchema) {
         const promises: Promise<void>[] = [];
 
         promises.push(this.setupBasicPreRouting(enable));
@@ -123,69 +123,71 @@ export class Registrar {
         await ShellCMD.run(`ip6tables -t raw -${enable ? "I" : "D"} PREROUTING -i fwbr+ -j CT --zone 1`);
     }
 
-    private static async setupPerSubnet(enable: boolean, subnetID: string, config: NetSubnetConfigLike) {
+    private static async setupPerSubnet(enable: boolean, subnetID: string, config: VMNetConfig.Types.NetSubnet) {
 
-        await IPTablesCMD.run(enable, `POSTROUTING -s '192.168.${subnetID}.0/24' -o ${config.targetIface} -j MASQUERADE`);
-        await IP6TablesCMD.run(enable, `POSTROUTING -s 'fd00:${subnetID}::/64' -o ${config.targetIface} -j MASQUERADE`);
+        await IPTablesCMD.run(enable, `POSTROUTING -s '192.168.${subnetID}.0/24'                               -o ${config.pubIface} -j MASQUERADE`);
+        await IPTablesCMD.run(enable, `POSTROUTING -s '192.168.${subnetID}.0/24' -d '192.168.${subnetID}.0/24' -o ${config.locIface} -j MASQUERADE`);
+
+        await IP6TablesCMD.run(enable, `POSTROUTING -s 'fd00:${subnetID}::/64'                                 -o ${config.pubIface} -j MASQUERADE`);
+        await IP6TablesCMD.run(enable, `POSTROUTING -s 'fd00:${subnetID}::/64'   -d 'fd00:${subnetID}::/64'    -o ${config.locIface} -j MASQUERADE`);
 
         const promises: Promise<void>[] = [];
 
         for (const [serverID, serverConfig] of Object.entries(config.servers)) {
-            promises.push(this.setupPerServer(enable, serverID, serverConfig, subnetID, config));
+            promises.push(this.setupPerServer(enable, serverID, serverConfig, subnetID, config, config.locIface));
         }
 
         await Promise.all(promises);
     }
 
-    private static async setupPerServer(enable: boolean, serverID: string, config: NetRouteLike, subnetID: string, subnetConfig: Omit<NetSubnetConfigLike, "routes">) {
+    private static async setupPerServer(enable: boolean, serverID: string, config: VMNetConfig.Types.NetRoute, subnetID: string, subnetConfig: Omit<VMNetConfig.Types.NetSubnet, "routes">, locIface: string) {
         await Promise.all([
-            this.setupServerIPv4Forwarding(enable, serverID, config, subnetID),
+            this.setupServerIPv4Forwarding(enable, serverID, config, subnetID, locIface),
             this.setupServerIPv6Forwarding(enable, serverID, config, subnetID, subnetConfig),
             this.setupServerPortForwarding(enable, serverID, config, subnetID, subnetConfig)
         ]);
     }
 
-    private static async setupServerIPv4Forwarding(enable: boolean, serverID: string, config: NetRouteLike, subnetID: string) {
+    private static async setupServerIPv4Forwarding(enable: boolean, serverID: string, config: VMNetConfig.Types.NetRoute, subnetID: string, locIface: string) {
         if (config.ipv4) {
-            await IPTablesCMD.run(enable, `POSTROUTING -s 192.168.${subnetID}.${serverID} -o ${config.ipv4.targetIface} -j MASQUERADE`);
-            await IPRouteCMD.run(enable, subnetID, serverID, config.ipv4.targetIface);
+            await IPTablesCMD.run(enable, `POSTROUTING -s 192.168.${subnetID}.${serverID}                                    -o ${config.ipv4.pubIface} -j MASQUERADE`);
+            await IPTablesCMD.run(enable, `POSTROUTING -s 192.168.${subnetID}.${serverID} -d 192.168.${subnetID}.${serverID} -o ${locIface} -j MASQUERADE`);
+            await IPRouteCMD.run(enable, subnetID, serverID, config.ipv4.pubIface);
             await IPRuleCMD.run(enable, subnetID, serverID);
 
-            await IPTablesCMD.run(enable, `PREROUTING -p tcp -d ${config.ipv4.addr} -i ${config.ipv4.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}`);
-            await IPTablesCMD.run(enable, `PREROUTING -p udp -d ${config.ipv4.addr} -i ${config.ipv4.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}`);
+            await IPTablesCMD.run(enable, `PREROUTING -d ${config.ipv4.addr} -j DNAT --to-destination 192.168.${subnetID}.${serverID}`);
+            await IPTablesCMD.run(enable, `PREROUTING -d ${config.ipv4.addr} -j DNAT --to-destination 192.168.${subnetID}.${serverID}`);
         }
     }
 
-    private static async setupServerIPv6Forwarding(enable: boolean, serverID: string, config: NetRouteLike, subnetID: string, subnetConfig: Omit<NetSubnetConfigLike, "routes">) {
+    private static async setupServerIPv6Forwarding(enable: boolean, serverID: string, config: VMNetConfig.Types.NetRoute, subnetID: string, subnetConfig: Omit<VMNetConfig.Types.NetSubnet, "routes">) {
         if (config.ipv6) {
-            await IPAddrCMD.run(enable, subnetConfig.publicIP6Prefix, subnetID, serverID, subnetConfig.targetIface);
-            await IP6TablesCMD.run(enable, `PREROUTING -p tcp -d ${subnetConfig.publicIP6Prefix}:${subnetID}::${serverID} -i ${subnetConfig.targetIface} -j DNAT --to-destination fd00:${subnetID}::${serverID}`);
-            await IP6TablesCMD.run(enable, `PREROUTING -p udp -d ${subnetConfig.publicIP6Prefix}:${subnetID}::${serverID} -i ${subnetConfig.targetIface} -j DNAT --to-destination fd00:${subnetID}::${serverID}`);
+            await IPAddrCMD.run(enable, subnetConfig.pubIP6Prefix, subnetID, serverID, subnetConfig.pubIface);
+            await IP6TablesCMD.run(enable, `PREROUTING -d ${subnetConfig.pubIP6Prefix}:${subnetID}::${serverID} -j DNAT --to-destination fd00:${subnetID}::${serverID}`);
             
             if (config.extraIPv6 && config.extraIPv6.length > 0) {
                 for (const ending of config.extraIPv6) {
                     if (/^[0-9a-f]$/.test(ending)) {
                         const fullServerID = serverID + ending;
-                        await IPAddrCMD.run(enable, subnetConfig.publicIP6Prefix, subnetID, fullServerID, subnetConfig.targetIface);
-                        await IP6TablesCMD.run(enable, `PREROUTING -p tcp -d ${subnetConfig.publicIP6Prefix}:${subnetID}::${fullServerID} -i ${subnetConfig.targetIface} -j DNAT --to-destination fd00:${subnetID}::${fullServerID}`);
-                        await IP6TablesCMD.run(enable, `PREROUTING -p udp -d ${subnetConfig.publicIP6Prefix}:${subnetID}::${fullServerID} -i ${subnetConfig.targetIface} -j DNAT --to-destination fd00:${subnetID}::${fullServerID}`);
+                        await IPAddrCMD.run(enable, subnetConfig.pubIP6Prefix, subnetID, fullServerID, subnetConfig.pubIface);
+                        await IP6TablesCMD.run(enable, `PREROUTING -d ${subnetConfig.pubIP6Prefix}:${subnetID}::${fullServerID} -j DNAT --to-destination fd00:${subnetID}::${fullServerID}`);
                     }
                 }
             }
         }
     }
 
-    private static async setupServerPortForwarding(enable: boolean, serverID: string, config: NetRouteLike, subnetID: string, subnetConfig: Omit<NetSubnetConfigLike, "routes">) {
+    private static async setupServerPortForwarding(enable: boolean, serverID: string, config: VMNetConfig.Types.NetRoute, subnetID: string, subnetConfig: Omit<VMNetConfig.Types.NetSubnet, "routes">) {
         if (config.ports) {
             for (const portConfig of config.ports) {
                 if (typeof portConfig === "string" || typeof portConfig === "number") {
                     const pubPortRange = portConfig.toString().replace("-", ":");
-                    await IPTablesCMD.run(enable, `PREROUTING -p tcp -d ${subnetConfig.publicIP4} --dport ${pubPortRange} -i ${subnetConfig.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${portConfig}`);
-                    await IPTablesCMD.run(enable, `PREROUTING -p udp -d ${subnetConfig.publicIP4} --dport ${pubPortRange} -i ${subnetConfig.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${portConfig}`);
+                    await IPTablesCMD.run(enable, `PREROUTING -p tcp -d ${subnetConfig.pubIP4} --dport ${pubPortRange} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${portConfig}`);
+                    await IPTablesCMD.run(enable, `PREROUTING -p udp -d ${subnetConfig.pubIP4} --dport ${pubPortRange} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${portConfig}`);
                 } else {
                     const pubPortRange = portConfig.pub.toString().replace("-", ":");
-                    await IPTablesCMD.run(enable, `PREROUTING -p tcp -d ${subnetConfig.publicIP4} --dport ${pubPortRange} -i ${subnetConfig.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${portConfig.local}`);
-                    await IPTablesCMD.run(enable, `PREROUTING -p udp -d ${subnetConfig.publicIP4} --dport ${pubPortRange} -i ${subnetConfig.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${portConfig.local}`);
+                    await IPTablesCMD.run(enable, `PREROUTING -p tcp -d ${subnetConfig.pubIP4} --dport ${pubPortRange} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${portConfig.loc}`);
+                    await IPTablesCMD.run(enable, `PREROUTING -p udp -d ${subnetConfig.pubIP4} --dport ${pubPortRange} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${portConfig.loc}`);
                 }
             }
         }

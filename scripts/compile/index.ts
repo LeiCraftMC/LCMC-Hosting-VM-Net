@@ -1,45 +1,19 @@
+import { CLIApp, type CLIBaseCommand, type CLICommandArg, type CLICommandContext } from "@cleverjs/cli";
+import { CompileAllCMD, CompileToTargetCMD } from "./compileCMD";
+import { Platforms } from "./compiler";
 
-import { SubCommand } from "./command.js";
-import { CompileAllCMD, CompileAutoCMD, CompileToTargetCMD } from "./commands/compile.js";
-import { HelpCMD } from "./commands/help.js";
-import { Platforms } from "./compiler.js";
+class CompileCMD extends CLIApp {
 
-const CompileCMD = new class CompileCMD extends SubCommand {
-
-    protected registerCommands() {
-        this.register("help", HelpCMD);
-        this.register("-h", HelpCMD);
-        this.register("--help", HelpCMD);
-
-        this.register("all", CompileAllCMD);
-        this.register("auto", CompileAutoCMD);
-
-        for (const platform in Platforms) {
-            this.register(platform, CompileToTargetCMD);
-        }
+    protected async run_help(): Promise<void> {
+        console.log("Usage: bun compile [<platform> | auto | all] [<version>] [--no-version-tag]");
+        console.log("Platforms: " + Object.keys(Platforms).join(", "));
     }
 
-    async run(args: string[]) {
-        const cmd_name = args[0] as string | undefined;
-
-        if (!cmd_name) {
-            return this.registry["auto"].run([], []);
-        }
-
-        const cmd = this.registry[cmd_name] as SubCommand | undefined;
-
-        if (!cmd) {
-            console.log(`Invalid Command: ${cmd_name}`);
-            console.log(`Run bun compile --help`);
-            return;
-        }
-
-        return cmd.run(args.slice(1), args.slice(0, 1));
-    }
-
-}();
+};
 
 
-await CompileCMD.run(
-    process.argv.slice(2)
-);
+await new CompileCMD()
+    .register(new CompileToTargetCMD())
+    .register(new CompileAllCMD())
+
+    .handle(process.argv.slice(2), "shell");

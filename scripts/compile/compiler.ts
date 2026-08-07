@@ -7,28 +7,34 @@ export enum Platforms {
 
 export type PlatformArg = keyof typeof Platforms | "auto";
 
-class CompilerBuilder {
+class CompilerCommand {
 
     public sourcemap = true;
     public minify = true;
-    public entrypoint = "./src/index.ts";
-    public outfile = "./build/bin/vm-net";
+    public bytecode = true;
+    public entrypoint = "./scripts/entrypoint.ts";
+    public outfile = "./build/bin/lcmc-hosting-vm-net";
+    public platform: PlatformArg = "auto";
     public env: NodeJS.ProcessEnv = {};
+    private additionalArgs: string[] = [];
 
     constructor(private baseCommand = "bun build --compile") {}
 
-    public setArg(arg: string) {
-        //this.command += ` ${arg}`;
+    public addArg(arg: string) {
+        this.additionalArgs.push(arg);
     }
 
     public getCommand() {
         return [
             this.baseCommand,
-            (this.sourcemap ? " --sourcemap" : ""),
-            (this.minify ? " --minify" : ""),
+            (this.sourcemap ? "--sourcemap" : ""),
+            (this.minify ? "--minify" : ""),
+            (this.bytecode ? "--bytecode" : ""),
             this.entrypoint,
             "--outfile", this.outfile,
-            ...Object.entries(this.env).map(([key, value]) => `--define "process.env.${key}='${value}'"`)
+            (this.platform === "auto" ? "" : `--target=${Platforms[this.platform]}`),
+            ...Object.entries(this.env).map(([key, value]) => `--define "process.env.${key}='${value}'"`),
+            ...this.additionalArgs
         ].join(" ");
     }
 
@@ -36,7 +42,7 @@ class CompilerBuilder {
 
 export class Compiler {
 
-    private command = new CompilerBuilder();
+    private command = new CompilerCommand();
 
     constructor(
         private platform: PlatformArg,
@@ -47,11 +53,13 @@ export class Compiler {
             this.command.outfile += `-v${version}`;
         }
 
+        this.command.platform = platform;
+
         if (platform !== "auto") {
             if (Object.keys(Platforms).some(p => p === platform) === false) {
                 throw new Error(`Invalid platform: ${platform}`);
             }
-            this.command.outfile += `-${platform} --target=${Platforms[platform]}`;
+            this.command.outfile += `-${platform}`;
         }
         
         this.command.env.APP_VERSION = version;
@@ -65,11 +73,8 @@ export class Compiler {
                 `.text()
             console.log(output);
         } catch (err: any) {
-            console.log(`Failed with code ${err.exitCode}`);
-            console.log(err.stdout.toString());
-            console.log(err.stderr.toString());
+            console.log(`Failed: ${err.message}`);
         }
     }
 
 }
-

@@ -1,38 +1,12 @@
 import fs from 'fs';
-import Utils from './utils.js';
+import Utils from './index.js';
+import { z } from 'zod';
 
-export interface ConfigLike {
-    enabled: boolean;
-    subnets: {[subnet: string]: NetSubnetConfigLike};
-}
-
-export interface NetSubnetConfigLike {
-    publicIP4: string;
-    publicIP6Prefix: string;
-    targetIface: string;
-    servers: {[server: string]: NetRouteLike};
-}
-
-export interface NetRouteLike {
-    ipv4?: {
-        addr: string;
-        targetIface: string;
-    }
-    ipv6?: boolean;
-    extraIPv6: string[]; // 0-9, a-f (added to server id)
-    ports?: NetRoutePortConfigLike[];
-}
-
-export type NetRoutePortConfigLike = {
-    pub: string | number;
-    local: string | number;
-} | string | number;
-
-export class ConfigHandler {
+export class VMNetConfig {
 
     private static readonly basePath = Bun.env.CUSTOM_CONFIG_PATH || "/etc/lcmc-hosting/vm-net";
     private static readonly tempPath = Bun.env.CUSTOM_TEMP_PATH || "/var/tmp/lcmc-hosting/vm-net";
-    private static config: ConfigLike;
+    private static config: VMNetConfig.Types.ConfigSchema;
 
     static loadConfig() {
         if (!this.config) {
@@ -43,7 +17,7 @@ export class ConfigHandler {
             if (!config) {
                 console.error("Failed to load config file");
                 Utils.gracefulShutdown(1);
-                return {} as ConfigLike;
+                return {} as VMNetConfig.Types.ConfigSchema;
             }
 
             this.config = config;
@@ -71,7 +45,7 @@ export class ConfigHandler {
         return this.loadConfig();
     }
 
-    static saveConfig(config: ConfigLike) {
+    static saveConfig(config: VMNetConfig.Types.ConfigSchema) {
         try {
             fs.writeFileSync(this.basePath + "/config.json", JSON.stringify(config, null, 4));
             this.config = config;
@@ -95,7 +69,7 @@ export class ConfigHandler {
         try {
             if (fs.existsSync(configFilePath)) {
                 const configData = fs.readFileSync(configFilePath, "utf-8");
-                return JSON.parse(configData) as ConfigLike;
+                return JSON.parse(configData) as VMNetConfig.Types.ConfigSchema;
             } else {
                 fs.writeFileSync(configFilePath, JSON.stringify(this.defaultConfig, null, 4));
                 return this.defaultConfig;
@@ -111,7 +85,7 @@ export class ConfigHandler {
         try {
             if (fs.existsSync(lastConfigFilePath)) {
                 const configData = fs.readFileSync(lastConfigFilePath, "utf-8");
-                return JSON.parse(configData) as ConfigLike;
+                return JSON.parse(configData) as VMNetConfig.Types.ConfigSchema;
             }
         } catch (error: any) {
             console.error(`Error loading temp config configuration: ${error.stack}`);
@@ -119,7 +93,7 @@ export class ConfigHandler {
         return null;
     }
 
-    private static readonly defaultConfig: ConfigLike = {
+    private static readonly defaultConfig: VMNetConfig.Types.ConfigSchema = {
         enabled: true,
         subnets: {}
     }
@@ -127,3 +101,54 @@ export class ConfigHandler {
 }
 
 
+export namespace VMNetConfig.Types {
+
+    export const PortORRange = z.string().or(z.number().int().min(1).max(65535))
+    export type PortORRange = z.infer<typeof PortORRange>;
+
+    export const NetRoutePort = z.union([
+        z.object({
+            pub: PortORRange,
+            loc: PortORRange
+        }),
+        PortORRange
+    ]);
+
+    export type NetRoutePort = z.infer<typeof NetRoutePort>;
+
+    export const NetRoute = z.object({
+        ipv4: z.object({
+            addr: z.string(),
+            pubIface: z.string()
+        }).optional(),
+        ipv6: z.boolean().optional(),
+        extraIPv6: z.array(z.string()).meta({ description: "0-9, a-f (added to server id" }).optional(),
+        ports: z.array(NetRoutePort).optional()
+    })
+
+    export type NetRoute = z.infer<typeof NetRoute>;
+
+    export const NetSubnet = z.object({
+        pubIP4: z.string(),
+        pubIP6Prefix: z.string(),
+        pubIface: z.string(),
+        locIface: z.string(),
+        servers: z.record(
+            z.string().meta({ description: "ServerID" }),
+            NetRoute
+        )
+    });
+
+    export type NetSubnet = z.infer<typeof NetSubnet>;
+
+    export const ConfigSchema = z.object({
+        enabled: z.boolean().default(true),
+        subnets: z.record(
+            z.string().meta({ description: "SubnetID" }),
+            NetSubnet
+        )
+    })
+    
+    export type ConfigSchema = z.infer<typeof ConfigSchema>;
+
+}

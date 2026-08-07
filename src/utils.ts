@@ -1,6 +1,7 @@
-import { Service } from "./service";
 
-export type Dict<T, K extends string | number = string> = Record<K, T>;
+export interface Dict<T> {
+    [key: string | number]: T;
+}
 
 class Utils {
     private static initialized = false;
@@ -13,8 +14,8 @@ class Utils {
         if (this.initialized) return;
         this.initialized = true;
         
-        process.once("SIGINT", Utils.gracefulShutdown.bind(Utils, 0));
-        process.once("SIGTERM", Utils.gracefulShutdown.bind(Utils, 0));
+        process.once("SIGINT", Utils.gracefulShutdown);
+        process.once("SIGTERM", Utils.gracefulShutdown);
 
         process.once("uncaughtException", Utils.uncaughtException);
         process.once("unhandledRejection", Utils.unhandledRejection);
@@ -27,13 +28,10 @@ class Utils {
         try {
             this.runStatus = exitCode === 0 ? "shutdown" : "shutdown_on_error";
             
-            if (Service.isRunning === true) {
-                await Service.stop();
-            }
-
+            
             console.log('Shutting down...');
 
-            process.exit(exitCode);
+                process.exit(exitCode);
         } catch (error: any) {
             console.error(`Uncaught Exception:\n${error.stack}`);
             this.forceShutdown();

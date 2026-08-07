@@ -1,4 +1,4 @@
-import { CLISubCMD } from "@cleverjs/cli";
+import { CLISubCMD } from "../../cmd.js";
 
 export class ConfigCMD extends CLISubCMD {
     public name = "config";

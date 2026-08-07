@@ -1,34 +1,103 @@
-import type { ConfigLike, NetSubnetConfigLike, NetRouteLike } from "./configHandler.js";
-import { ShellCMD, IPTablesNatCMD, IP6TablesNatCMD, IPRouteCMD, IPRuleCMD, IPAddrCMD, IPTablesCMD } from "./linuxUtils.js";
+import type { ConfigLike, NetSubnetConfigLike, NetRouteLike, NetRoutePortConfigLike } from "./configHandler.js";
 
+class ShellCMD {
+    static async run(cmd: string) {
+        try {
+            await Bun.$`${{ raw: cmd }}`.quiet();
+            console.log(`Executed: ${cmd}`);
+        } catch {
+            console.error(`Failed to execute: ${cmd}`);
+        }
+    }
+    static async get(cmd: string) {
+        try {
+            return (await Bun.$`${{ raw: cmd }}`.text()).trim();
+        } catch {
+            return null;
+        }
+    }
+}
 
-export class ForwardingHandler {
+class IPTablesCMD {
+    protected static baseCMD = "iptables -t nat";
 
-    static async start(config: ConfigLike) {
-        // mabye config to enable or disable forwarding
-
-        await ShellCMD.run(`iptables -N LCMC-HOSTING-VM-NET_FW`);
-        await ShellCMD.run(`iptables -t nat -N LCMC-HOSTING-VM-NET_PRO`);
-
-        await this.runCMDs(true, config);
+    static async run(enable: boolean, cmd: string) {
+        const fullCMD = `${this.baseCMD} -${enable ? "A" : "D"} ${cmd}`;
+        await ShellCMD.run(fullCMD);
     }
 
-    static async stop(config: ConfigLike) {
-        // mabye config to enable or disable forwarding
-        await this.runCMDs(false, config);
+    static async runInsert(enable: boolean, cmd: string) {
+        const fullCMD = `${this.baseCMD} -${enable ? "I" : "D"} ${cmd}`;
+        await ShellCMD.run(fullCMD);
+    }
+}
 
-        await ShellCMD.run(`iptables -t nat -F LCMC-HOSTING-VM-NET_PRO`);
-        await ShellCMD.run(`iptables -t nat -X LCMC-HOSTING-VM-NET_PRO`);
-        await ShellCMD.run(`iptables -F LCMC-HOSTING-VM-NET_FW`);
-        await ShellCMD.run(`iptables -X LCMC-HOSTING-VM-NET_FW`);
+class IP6TablesCMD extends IPTablesCMD {
+    protected static baseCMD = "ip6tables -t nat";
+}
+
+
+class IPAddrCMD {
+
+    protected static baseCMD = "ip addr";
+
+    static async run(enable: boolean, ipPrefix: string, subnet: string, server: string, iface: string) {
+        const fullCMD = `${this.baseCMD} ${enable ? "add" : "del"} ${ipPrefix}:${subnet}::${server} dev ${iface}`;
+        await ShellCMD.run(fullCMD);
+    }
+
+}
+
+class IPRuleCMD {
+
+    protected static baseCMD = "ip rule ";
+
+    static async run(enable: boolean, subnet: string, server: string) {
+        const fullCMD = `${this.baseCMD} ${enable ? "add" : "del"} from 192.168.${subnet}.${server} lookup 8006${subnet}${server}`;
+        await ShellCMD.run(fullCMD);
+    }
+
+}
+
+class IPRouteCMD {
+
+    protected static baseCMD = "ip route ";
+
+    static async run(enable: boolean, subnet: string, server: string, iface: string) {
+        const gateway = await ShellCMD.get(`ip route show dev ${iface} | awk '/default/ {print $3}'`)
+        if (!gateway) {
+            console.error(`Failed to get gateway for ${iface}`);
+            return;
+        }
+        const fullCMD = `${this.baseCMD} ${enable ? "add" : "del"} default via ${gateway} dev ${iface} table 8006${subnet}${server}`;
+        await ShellCMD.run(fullCMD);
+    }
+
+}
+
+
+
+export class Registrar {
+
+    static async register(config: ConfigLike) {
+        if (config.enabled) {
+            await Promise.all([
+                this.enableIPForwarding(),
+                this.runCMDs(true, config)
+            ]);
+        }
+    }
+
+    static async unregister(config: ConfigLike) {
+        if (config.enabled) {
+            await this.runCMDs(false, config);
+        }
     }
 
     private static async runCMDs(enable: boolean, config: ConfigLike) {
-
-        await IPTablesNatCMD.runInsert(enable, `PREROUTING -m addrtype --dst-type LOCAL -j LCMC-HOSTING-VM-NET_PRO`);
-        await IPTablesNatCMD.runInsert(enable, `OUTPUT ! -d 127.0.0.0/8 -m addrtype --dst-type LOCAL -j LCMC-HOSTING-VM-NET_PRO`);
-
         const promises: Promise<void>[] = [];
+
+        promises.push(this.setupBasicPreRouting(enable));
 
         for (const [subnetID, subnetConfig] of Object.entries(config.subnets)) {
             promises.push(this.setupPerSubnet(enable, subnetID, subnetConfig));
@@ -37,14 +106,27 @@ export class ForwardingHandler {
         await Promise.all(promises);
     }
 
+
+    private static async enableIPForwarding() {
+        await Promise.all([
+            ShellCMD.run("echo 1 > /proc/sys/net/ipv4/ip_forward"),
+            ShellCMD.run("echo 1 > /proc/sys/net/ipv4/conf/all/proxy_arp"),
+
+            ShellCMD.run("echo 1 > /proc/sys/net/ipv6/conf/all/forwarding"),
+            ShellCMD.run("echo 1 > /proc/sys/net/ipv6/conf/all/proxy_ndp")
+        ])
+    }
+
+
+    private static async setupBasicPreRouting(enable: boolean) {
+        await ShellCMD.run(`iptables -t raw -${enable ? "I" : "D"} PREROUTING -i fwbr+ -j CT --zone 1`);
+        await ShellCMD.run(`ip6tables -t raw -${enable ? "I" : "D"} PREROUTING -i fwbr+ -j CT --zone 1`);
+    }
+
     private static async setupPerSubnet(enable: boolean, subnetID: string, config: NetSubnetConfigLike) {
 
-        await IPTablesCMD.runInsert(enable, `FORWARD -o ${config.iface} -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT`);
-        await IPTablesCMD.runInsert(enable, `FORWARD -o ${config.iface} -j LCMC-HOSTING-VM-NET_FW`);
-        await IPTablesCMD.runInsert(enable, `FORWARD -i ${config.iface} ! -o ${config.iface} -j ACCEPT`);
-        await IPTablesCMD.runInsert(enable, `FORWARD -i ${config.iface} -o ${config.iface} -j ACCEPT`);
-
-        await IPTablesNatCMD.run(enable, `LCMC-HOSTING-VM-NET_PRO -i ${config.iface} -j RETURN`);
+        await IPTablesCMD.run(enable, `POSTROUTING -s '192.168.${subnetID}.0/24' -o ${config.targetIface} -j MASQUERADE`);
+        await IP6TablesCMD.run(enable, `POSTROUTING -s 'fd00:${subnetID}::/64' -o ${config.targetIface} -j MASQUERADE`);
 
         const promises: Promise<void>[] = [];
 
@@ -65,28 +147,28 @@ export class ForwardingHandler {
 
     private static async setupServerIPv4Forwarding(enable: boolean, serverID: string, config: NetRouteLike, subnetID: string) {
         if (config.ipv4) {
-            await IPTablesNatCMD.run(enable, `POSTROUTING -s 192.168.${subnetID}.${serverID} -o ${config.ipv4.targetIface} -j MASQUERADE`);
+            await IPTablesCMD.run(enable, `POSTROUTING -s 192.168.${subnetID}.${serverID} -o ${config.ipv4.targetIface} -j MASQUERADE`);
             await IPRouteCMD.run(enable, subnetID, serverID, config.ipv4.targetIface);
             await IPRuleCMD.run(enable, subnetID, serverID);
 
-            await IPTablesNatCMD.run(enable, `PREROUTING -p tcp -d ${config.ipv4.addr} -i ${config.ipv4.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}`);
-            await IPTablesNatCMD.run(enable, `PREROUTING -p udp -d ${config.ipv4.addr} -i ${config.ipv4.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}`);
+            await IPTablesCMD.run(enable, `PREROUTING -p tcp -d ${config.ipv4.addr} -i ${config.ipv4.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}`);
+            await IPTablesCMD.run(enable, `PREROUTING -p udp -d ${config.ipv4.addr} -i ${config.ipv4.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}`);
         }
     }
 
     private static async setupServerIPv6Forwarding(enable: boolean, serverID: string, config: NetRouteLike, subnetID: string, subnetConfig: Omit<NetSubnetConfigLike, "routes">) {
         if (config.ipv6) {
             await IPAddrCMD.run(enable, subnetConfig.publicIP6Prefix, subnetID, serverID, subnetConfig.targetIface);
-            await IP6TablesNatCMD.run(enable, `PREROUTING -p tcp -d ${subnetConfig.publicIP6Prefix}:${subnetID}::${serverID} -i ${subnetConfig.targetIface} -j DNAT --to-destination fd00:${subnetID}::${serverID}`);
-            await IP6TablesNatCMD.run(enable, `PREROUTING -p udp -d ${subnetConfig.publicIP6Prefix}:${subnetID}::${serverID} -i ${subnetConfig.targetIface} -j DNAT --to-destination fd00:${subnetID}::${serverID}`);
+            await IP6TablesCMD.run(enable, `PREROUTING -p tcp -d ${subnetConfig.publicIP6Prefix}:${subnetID}::${serverID} -i ${subnetConfig.targetIface} -j DNAT --to-destination fd00:${subnetID}::${serverID}`);
+            await IP6TablesCMD.run(enable, `PREROUTING -p udp -d ${subnetConfig.publicIP6Prefix}:${subnetID}::${serverID} -i ${subnetConfig.targetIface} -j DNAT --to-destination fd00:${subnetID}::${serverID}`);
             
             if (config.extraIPv6 && config.extraIPv6.length > 0) {
                 for (const ending of config.extraIPv6) {
                     if (/^[0-9a-f]$/.test(ending)) {
                         const fullServerID = serverID + ending;
                         await IPAddrCMD.run(enable, subnetConfig.publicIP6Prefix, subnetID, fullServerID, subnetConfig.targetIface);
-                        await IP6TablesNatCMD.run(enable, `PREROUTING -p tcp -d ${subnetConfig.publicIP6Prefix}:${subnetID}::${fullServerID} -i ${subnetConfig.targetIface} -j DNAT --to-destination fd00:${subnetID}::${fullServerID}`);
-                        await IP6TablesNatCMD.run(enable, `PREROUTING -p udp -d ${subnetConfig.publicIP6Prefix}:${subnetID}::${fullServerID} -i ${subnetConfig.targetIface} -j DNAT --to-destination fd00:${subnetID}::${fullServerID}`);
+                        await IP6TablesCMD.run(enable, `PREROUTING -p tcp -d ${subnetConfig.publicIP6Prefix}:${subnetID}::${fullServerID} -i ${subnetConfig.targetIface} -j DNAT --to-destination fd00:${subnetID}::${fullServerID}`);
+                        await IP6TablesCMD.run(enable, `PREROUTING -p udp -d ${subnetConfig.publicIP6Prefix}:${subnetID}::${fullServerID} -i ${subnetConfig.targetIface} -j DNAT --to-destination fd00:${subnetID}::${fullServerID}`);
                     }
                 }
             }
@@ -96,37 +178,15 @@ export class ForwardingHandler {
     private static async setupServerPortForwarding(enable: boolean, serverID: string, config: NetRouteLike, subnetID: string, subnetConfig: Omit<NetSubnetConfigLike, "routes">) {
         if (config.ports) {
             for (const portConfig of config.ports) {
-
-                let pubPRWithHyphen: string;
-                let pubPRWithColon: string;
-                let localPRWithHyphen: string;
-                let localPRWithColon: string;
-
                 if (typeof portConfig === "string" || typeof portConfig === "number") {
-                    pubPRWithHyphen = portConfig.toString();
-                    pubPRWithColon = pubPRWithHyphen.replace("-", ":");
-                    localPRWithHyphen = pubPRWithHyphen;
-                    localPRWithColon = pubPRWithColon;
+                    const pubPortRange = portConfig.toString().replace("-", ":");
+                    await IPTablesCMD.run(enable, `PREROUTING -p tcp -d ${subnetConfig.publicIP4} --dport ${pubPortRange} -i ${subnetConfig.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${portConfig}`);
+                    await IPTablesCMD.run(enable, `PREROUTING -p udp -d ${subnetConfig.publicIP4} --dport ${pubPortRange} -i ${subnetConfig.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${portConfig}`);
                 } else {
-                    pubPRWithHyphen = portConfig.pub.toString();
-                    pubPRWithColon = pubPRWithHyphen.replace("-", ":");
-                    localPRWithHyphen = portConfig.local.toString();
-                    localPRWithColon = localPRWithHyphen.replace("-", ":");
+                    const pubPortRange = portConfig.pub.toString().replace("-", ":");
+                    await IPTablesCMD.run(enable, `PREROUTING -p tcp -d ${subnetConfig.publicIP4} --dport ${pubPortRange} -i ${subnetConfig.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${portConfig.local}`);
+                    await IPTablesCMD.run(enable, `PREROUTING -p udp -d ${subnetConfig.publicIP4} --dport ${pubPortRange} -i ${subnetConfig.targetIface} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${portConfig.local}`);
                 }
-
-                await IPTablesCMD.run(enable, `LCMC-HOSTING-VM-NET_FW -d 192.168.${subnetID}.${serverID} ! -i ${subnetConfig.iface} -o ${subnetConfig.iface} -p tcp -m tcp --dport ${localPRWithColon} -j ACCEPT`);
-                await IPTablesCMD.run(enable, `LCMC-HOSTING-VM-NET_FW -d 192.168.${subnetID}.${serverID} ! -i ${subnetConfig.iface} -o ${subnetConfig.iface} -p udp -m udp --dport ${localPRWithColon} -j ACCEPT`);
-
-                await IPTablesNatCMD.run(enable, `POSTROUTING -s 192.168.${subnetID}.${serverID} -d 192.168.${subnetID}.${serverID} -p tcp -m tcp --dport ${localPRWithColon} -j MASQUERADE`)
-                await IPTablesNatCMD.run(enable, `POSTROUTING -s 192.168.${subnetID}.${serverID} -d 192.168.${subnetID}.${serverID} -p udp -m udp --dport ${localPRWithColon} -j MASQUERADE`)
-
-                //await IPTablesNatCMD.run(enable, `LCMC-HOSTING-VM-NET_PRO -d ${subnetConfig.publicIP4} ! -i ${subnetConfig.iface} -p tcp -m tcp --dport ${pubPRWithColon} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${localPRWithHyphen}`);
-                //await IPTablesNatCMD.run(enable, `LCMC-HOSTING-VM-NET_PRO -d ${subnetConfig.publicIP4} ! -i ${subnetConfig.iface} -p udp -m udp --dport ${pubPRWithColon} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${localPRWithHyphen}`);
-
-                await IPTablesNatCMD.run(enable, `LCMC-HOSTING-VM-NET_PRO ! -i ${subnetConfig.iface} -p tcp -m tcp --dport ${pubPRWithColon} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${localPRWithHyphen}`);
-                await IPTablesNatCMD.run(enable, `LCMC-HOSTING-VM-NET_PRO ! -i ${subnetConfig.iface} -p udp -m udp --dport ${pubPRWithColon} -j DNAT --to-destination 192.168.${subnetID}.${serverID}:${localPRWithHyphen}`);
-
-
             }
         }
     }

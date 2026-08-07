@@ -1,4 +1,4 @@
-import { CLICMDHandler } from "./cli/app.js";
+import { CLICMDHandler } from "./cli/handler.js";
 
 export default class Main {
 
@@ -12,6 +12,7 @@ export default class Main {
         await CLICMDHandler.getInstance().run(
             args.map(arg => arg.toLowerCase())
                 .filter(arg => arg),
+            []
         );
     }
 

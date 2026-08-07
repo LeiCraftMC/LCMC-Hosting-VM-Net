@@ -9,15 +9,21 @@ function delete_bin {
 }
 
 function delete_configs {
+
     if [[ ! -d "$CONFIG_PATH" && ! -d "$CACHE_PATH" ]]; then return; fi
 
-    if [[ -d "$CONFIG_PATH" ]]; then
-        rm -rf "$CONFIG_PATH"
+    read -p "Do you want to also delete configuration and cache files? (y/n): " delete_config_choice
+    if [[ "$delete_config_choice" == "y" || "$delete_config_choice" == "Y" ]]; then
+        if [[ -d "$CONFIG_PATH" ]]; then
+            rm -rf "$CONFIG_PATH"
+        fi
+        if [[ -d "$CACHE_PATH" ]]; then
+            rm -rf "$CACHE_PATH"
+        fi
+        echo "Configuration and cache files deleted."
+    else
+        echo "Configuration and cache files retained."
     fi
-    if [[ -d "$CACHE_PATH" ]]; then
-        rm -rf "$CACHE_PATH"
-    fi
-    echo "Configuration and cache files deleted."
 }
 
 function main {
@@ -27,18 +33,16 @@ function main {
         exit 1
     fi
 
-    #read -p "Are you sure you want to uninstall LCMC-Hosting-VM-Net? (y/n): " confirm
-    #if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-    #    echo "Uninstallation aborted."
-    #    exit 1
-    #fi
+    read -p "Are you sure you want to uninstall LCMC-Hosting-VM-Net? (y/n): " confirm
+    if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+        echo "Uninstallation aborted."
+        exit 1
+    fi
 
     delete_bin
-    if [[ "${@#--with-configs}" = "$@" ]]; then
-        delete_configs
-    fi
+    delete_configs
 
     echo "LCMC-Hosting-VM-Net has been uninstalled successfully."
 }
 
-main $@
+main
